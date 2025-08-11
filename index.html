@@ -33,6 +33,7 @@
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-wrap: nowrap; /* ヘッダー要素の折り返しを禁止 */
   }
   body.dark-mode header {
     background: rgba(28, 28, 30, 0.9);
@@ -47,6 +48,9 @@
     text-align: center;
     margin: 0 1rem;
     letter-spacing: -0.5px;
+    white-space: nowrap; /* タイトルが折り返さないようにする */
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   body.dark-mode header .title {
     color: #f5f5f7;
@@ -131,7 +135,6 @@
   .hamburger-menu.active ~ .overlay {
     display: block;
   }
-
 
   /* 言語選択のプルダウンメニュー */
   .dropdown {
@@ -220,33 +223,23 @@
     display: flex;
     align-items: center;
     gap: 0.8rem;
+    flex-shrink: 0;
   }
   .header-right {
     display: flex;
     align-items: center;
     gap: 0.8rem;
+    flex-shrink: 0;
   }
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  header .title {
-      flex-grow: 1;
-      text-align: center;
-  }
-  header .controls {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-  }
-  
+
   /* 検索窓のスタイル */
   .search-container {
     display: flex;
     align-items: center;
     width: 300px;
     transition: width 0.3s cubic-bezier(0.65, 0.05, 0.36, 1);
+    flex-shrink: 1;
+    min-width: 0; /* overflow: hidden と組み合わせてテキストの折り返しを防ぐ */
   }
   @media (max-width: 768px) {
       .search-container {
@@ -401,7 +394,6 @@
       transform: scale(0.95);
       opacity: 0.8;
   }
-
 </style>
 </head>
 <body>
@@ -2147,7 +2139,6 @@
   </section>
   
 </main>
-
 <footer>
   <a href="https://discord.gg/nhpWgmtzkK" target="_blank" rel="noopener" aria-label="Discordリンク" title="Discord">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561 19.9053 19.9053 0 0 0 5.9949 3.0376.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057 13.128 13.128 0 0 1-1.872-.8953c.157-.1169.311-.2404.46-.3717a.0743.0743 0 0 0 .0076-.0115c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 0 .0064.0115c.148.1313.301.2548.459.3717a12.577 12.577 0 0 1-1.873.8954.076.076 0 0 0-.04.1056c.3609.6989.7724 1.3638 1.234 1.9942a.076.076 0 0 0 .0843.0276 19.9393 19.9393 0 0 0 6.005-3.0376.0823.0823 0 0 0 .03-.0561c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0276z"/></svg>
@@ -2212,9 +2203,15 @@
   
   // 検索ハイライトのリセット関数
   function resetHighlight() {
-    document.querySelectorAll('.highlight').forEach(span => {
-      const parent = span.parentNode;
-      parent.replaceChild(document.createTextNode(span.textContent), span);
+    const chapters = document.querySelectorAll('.chapter');
+    chapters.forEach(chapter => {
+        const paragraphs = chapter.querySelectorAll('p, li');
+        paragraphs.forEach(p => {
+            if (p.hasAttribute('data-original-html')) {
+                p.innerHTML = p.getAttribute('data-original-html');
+                p.removeAttribute('data-original-html');
+            }
+        });
     });
   }
 
@@ -2265,33 +2262,32 @@
 
   // 検索機能
   const searchInput = document.getElementById('search-input');
-  searchInput.addEventListener('input', (event) => {
-    const searchTerm = event.target.value.trim();
-    const chapters = document.querySelectorAll('.chapter');
-    
-    // 既存のハイライトをクリア
-    resetHighlight();
 
-    if (searchTerm.length > 0) {
-      chapters.forEach(chapter => {
-        // 現在表示されている言語のセクションのみを対象
-        if(!chapter.classList.contains('hidden')){
-          const paragraphs = chapter.querySelectorAll('p, li');
-          paragraphs.forEach(p => {
-            const regex = new RegExp(searchTerm, 'gi');
-            // innerHTMLを直接操作する前に、テキストを一度取得
-            const originalText = p.textContent;
-            if (originalText.match(regex)) {
-              // ハイライトを適用する前に、元のHTMLを保存しておく
-              const tempHTML = p.innerHTML;
-              // テキストコンテンツのみをハイライト
-              const highlightedText = originalText.replace(regex, `<span class="highlight">$&</span>`);
-              p.innerHTML = highlightedText;
-            }
+  searchInput.addEventListener('input', (event) => {
+      const searchTerm = event.target.value.trim();
+      const chapters = document.querySelectorAll('.chapter');
+      
+      // 既存のハイライトをクリア
+      resetHighlight();
+      
+      if (searchTerm.length > 0) {
+          chapters.forEach(chapter => {
+              if(!chapter.classList.contains('hidden')){
+                  const paragraphs = chapter.querySelectorAll('p, li');
+                  paragraphs.forEach(p => {
+                      const regex = new RegExp(searchTerm, 'gi');
+                      if (p.textContent.match(regex)) {
+                          // 元のHTMLを属性に保存
+                          if (!p.hasAttribute('data-original-html')) {
+                              p.setAttribute('data-original-html', p.innerHTML);
+                          }
+                          // ハイライトを適用
+                          p.innerHTML = p.innerHTML.replace(regex, `<span class="highlight">$&</span>`);
+                      }
+                  });
+              }
           });
-        }
-      });
-    }
+      }
   });
 
 
@@ -2321,7 +2317,7 @@
       viewToggle.title = 'デスクトップ表示に切り替え';
       viewToggle.setAttribute('aria-label', 'デスクトップ表示に切り替え');
     } else {
-      viewToggle.textContent = '📱';
+      viewToggle.textContent = '�';
       viewToggle.title = 'モバイル表示に切り替え';
       viewToggle.setAttribute('aria-label', 'モバイル表示に切り替え');
     }
@@ -2343,4 +2339,5 @@
 
 </body>
 </html>
+
 
